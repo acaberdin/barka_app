@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import 'pages/home.dart';
+import 'pages/onboarding.dart';
 import 'pages/login.dart';
 import 'pages/register.dart';
 
@@ -19,16 +19,18 @@ class BarkaApp extends StatelessWidget {
 
       theme: ThemeData(
         scaffoldBackgroundColor: const Color(0xFFccefff),
-
         textTheme: GoogleFonts.schoolbellTextTheme(),
       ),
 
+      // ✅ START APP HERE
       initialRoute: '/',
 
+      // ✅ ALL ROUTES MUST EXIST
       routes: {
-        '/': (context) => const Home(),
-        '/login': (context) => const Login(),
-        '/register': (context) => const Register(),
+        '/': (context) => const OnboardingPage(),
+        '/login': (context) => const LoginPage(),
+        '/register': (context) => const RegisterPage(),
+        '/onboarding': (context) => const OnboardingPage(),
       },
     );
   }
