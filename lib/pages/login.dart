@@ -155,11 +155,6 @@ class _LoginPageState extends State<LoginPage>
                   ),
 
                   const SizedBox(height: 30),
-
-                  TextButton(
-                    onPressed: _goOnboarding,
-                    child: const Text("← Back to Onboarding"),
-                  ),
                 ],
               ),
             ),
