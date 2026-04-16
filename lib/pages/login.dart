@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -10,8 +11,13 @@ class LoginPage extends StatefulWidget {
 
 class _LoginPageState extends State<LoginPage>
     with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  late Animation<double> _breathingWave;
+  late final AnimationController _controller;
+  late final Animation<double> _breathingWave;
+
+  final TextEditingController emailController = TextEditingController();
+  final TextEditingController passwordController = TextEditingController();
+
+  bool isLoading = false;
 
   @override
   void initState() {
@@ -31,15 +37,100 @@ class _LoginPageState extends State<LoginPage>
   @override
   void dispose() {
     _controller.dispose();
+    emailController.dispose();
+    passwordController.dispose();
     super.dispose();
   }
 
   void _goOnboarding() {
-    Navigator.pushReplacementNamed(context, '/onboarding');
+    if (!mounted) return;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      Navigator.pushReplacementNamed(context, '/onboarding');
+    });
   }
 
   void _goRegister() {
     Navigator.pushNamed(context, '/register');
+  }
+
+  /// 🔐 LOGIN
+  Future<void> loginUser() async {
+    final email = emailController.text.trim();
+    final password = passwordController.text.trim();
+
+    if (email.isEmpty || password.isEmpty) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text("Please fill all fields")));
+      return;
+    }
+
+    setState(() => isLoading = true);
+
+    try {
+      await FirebaseAuth.instance.signInWithEmailAndPassword(
+        email: email,
+        password: password,
+      );
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text("Login successful")));
+
+      Navigator.pushReplacementNamed(context, '/dashboard');
+    } catch (e) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text("Error: $e")));
+    }
+
+    setState(() => isLoading = false);
+  }
+
+  /// 🔥 FORGOT PASSWORD
+  void showForgotPasswordDialog() {
+    final emailController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (_) {
+        return AlertDialog(
+          title: const Text("Reset Password"),
+          content: TextField(
+            controller: emailController,
+            decoration: const InputDecoration(hintText: "Enter your email"),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () async {
+                try {
+                  await FirebaseAuth.instance.sendPasswordResetEmail(
+                    email: emailController.text.trim(),
+                  );
+
+                  Navigator.pop(context);
+
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text("Password reset email sent!")),
+                  );
+                } catch (e) {
+                  ScaffoldMessenger.of(
+                    context,
+                  ).showSnackBar(SnackBar(content: Text("Error: $e")));
+                }
+              },
+              child: const Text("Send"),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   @override
@@ -108,27 +199,13 @@ class _LoginPageState extends State<LoginPage>
 
                   const SizedBox(height: 40),
 
-                  _field(Icons.person, "Username"),
+                  _field(Icons.person, "Email", controller: emailController),
                   const SizedBox(height: 15),
-                  _field(Icons.lock, "Password", obscure: true),
-
-                  const SizedBox(height: 10),
-
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      TextButton(
-                        onPressed: () {},
-                        child: const Text("Forgot Password?"),
-                      ),
-                      TextButton(
-                        onPressed: _goRegister,
-                        child: const Text(
-                          "Register",
-                          style: TextStyle(fontWeight: FontWeight.bold),
-                        ),
-                      ),
-                    ],
+                  _field(
+                    Icons.lock,
+                    "Password",
+                    obscure: true,
+                    controller: passwordController,
                   ),
 
                   const SizedBox(height: 20),
@@ -137,20 +214,44 @@ class _LoginPageState extends State<LoginPage>
                     width: double.infinity,
                     height: 55,
                     child: ElevatedButton(
-                      onPressed: () {},
+                      onPressed: isLoading ? null : loginUser,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF68bde5),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(30),
                         ),
                       ),
-                      child: Text(
-                        "LOGIN",
-                        style: GoogleFonts.leagueSpartan(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
+                      child: isLoading
+                          ? const CircularProgressIndicator(color: Colors.white)
+                          : Text(
+                              "LOGIN",
+                              style: GoogleFonts.leagueSpartan(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 20),
+
+                  /// 🔥 FORGOT PASSWORD
+                  TextButton(
+                    onPressed: showForgotPasswordDialog,
+                    child: const Text(
+                      "Forgot Password?",
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                  ),
+
+                  const SizedBox(height: 10),
+
+                  /// REGISTER
+                  TextButton(
+                    onPressed: _goRegister,
+                    child: const Text(
+                      "Register",
+                      style: TextStyle(fontWeight: FontWeight.bold),
                     ),
                   ),
 
@@ -164,8 +265,14 @@ class _LoginPageState extends State<LoginPage>
     );
   }
 
-  Widget _field(IconData icon, String hint, {bool obscure = false}) {
+  Widget _field(
+    IconData icon,
+    String hint, {
+    bool obscure = false,
+    TextEditingController? controller,
+  }) {
     return TextField(
+      controller: controller,
       obscureText: obscure,
       decoration: InputDecoration(
         hintText: hint,

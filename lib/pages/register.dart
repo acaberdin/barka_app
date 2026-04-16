@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class RegisterPage extends StatefulWidget {
   const RegisterPage({super.key});
@@ -12,6 +14,14 @@ class _RegisterPageState extends State<RegisterPage>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _breathingWave;
+
+  final TextEditingController usernameController = TextEditingController();
+  final TextEditingController emailController = TextEditingController();
+  final TextEditingController passwordController = TextEditingController();
+  final TextEditingController confirmPasswordController =
+      TextEditingController();
+
+  bool isLoading = false;
 
   @override
   void initState() {
@@ -31,15 +41,25 @@ class _RegisterPageState extends State<RegisterPage>
   @override
   void dispose() {
     _controller.dispose();
+    usernameController.dispose();
+    emailController.dispose();
+    passwordController.dispose();
+    confirmPasswordController.dispose();
     super.dispose();
   }
 
   void _goLogin() {
-    Navigator.pop(context);
+    Navigator.pushReplacementNamed(context, '/login');
   }
 
-  Widget _field(IconData icon, String hint, {bool obscure = false}) {
+  Widget _field(
+    IconData icon,
+    String hint, {
+    bool obscure = false,
+    TextEditingController? controller,
+  }) {
     return TextField(
+      controller: controller,
       obscureText: obscure,
       decoration: InputDecoration(
         hintText: hint,
@@ -52,6 +72,63 @@ class _RegisterPageState extends State<RegisterPage>
         ),
       ),
     );
+  }
+
+  Future<void> registerUser() async {
+    final username = usernameController.text.trim();
+    final email = emailController.text.trim();
+    final password = passwordController.text.trim();
+    final confirmPassword = confirmPasswordController.text.trim();
+
+    if (username.isEmpty || email.isEmpty || password.isEmpty) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text("Please fill all fields")));
+      return;
+    }
+
+    if (password != confirmPassword) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text("Passwords do not match")));
+      return;
+    }
+
+    setState(() => isLoading = true);
+
+    try {
+      final userCredential = await FirebaseAuth.instance
+          .createUserWithEmailAndPassword(email: email, password: password);
+
+      final user = userCredential.user;
+
+      if (user == null) {
+        throw Exception("User creation failed");
+      }
+
+      await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
+        'username': username,
+        'email': email,
+        'createdAt': Timestamp.now(),
+        'groupIds': [],
+      });
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text("Account created!")));
+
+      Navigator.pushReplacementNamed(context, '/login');
+    } catch (e) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text("Error: $e")));
+    }
+
+    setState(() => isLoading = false);
   }
 
   @override
@@ -120,13 +197,27 @@ class _RegisterPageState extends State<RegisterPage>
 
                   const SizedBox(height: 40),
 
-                  _field(Icons.person, "Username"),
+                  _field(
+                    Icons.person,
+                    "Username",
+                    controller: usernameController,
+                  ),
                   const SizedBox(height: 15),
-                  _field(Icons.email, "Email"),
+                  _field(Icons.email, "Email", controller: emailController),
                   const SizedBox(height: 15),
-                  _field(Icons.lock, "Password", obscure: true),
+                  _field(
+                    Icons.lock,
+                    "Password",
+                    obscure: true,
+                    controller: passwordController,
+                  ),
                   const SizedBox(height: 15),
-                  _field(Icons.lock_outline, "Confirm Password", obscure: true),
+                  _field(
+                    Icons.lock_outline,
+                    "Confirm Password",
+                    obscure: true,
+                    controller: confirmPasswordController,
+                  ),
 
                   const SizedBox(height: 30),
 
@@ -134,20 +225,22 @@ class _RegisterPageState extends State<RegisterPage>
                     width: double.infinity,
                     height: 55,
                     child: ElevatedButton(
-                      onPressed: () {},
+                      onPressed: isLoading ? null : registerUser,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF68bde5),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(30),
                         ),
                       ),
-                      child: Text(
-                        "CREATE ACCOUNT",
-                        style: GoogleFonts.leagueSpartan(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
+                      child: isLoading
+                          ? const CircularProgressIndicator(color: Colors.white)
+                          : Text(
+                              "CREATE ACCOUNT",
+                              style: GoogleFonts.leagueSpartan(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
                     ),
                   ),
 
@@ -167,7 +260,6 @@ class _RegisterPageState extends State<RegisterPage>
   }
 }
 
-/// 🌊 SAME WAVE DESIGN AS LOGIN
 class TopWaveClipper extends CustomClipper<Path> {
   @override
   Path getClip(Size size) {

@@ -1,11 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:firebase_core/firebase_core.dart';
+
+import 'firebase_options.dart';
 
 import 'pages/onboarding.dart';
 import 'pages/login.dart';
 import 'pages/register.dart';
+import 'pages/dashboard.dart';
+import 'pages/split.dart';
 
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+
   runApp(const BarkaApp());
 }
 
@@ -22,15 +31,13 @@ class BarkaApp extends StatelessWidget {
         textTheme: GoogleFonts.schoolbellTextTheme(),
       ),
 
-      // ✅ START APP HERE
-      initialRoute: '/',
+      initialRoute: '/onboarding',
 
-      // ✅ ALL ROUTES MUST EXIST
       routes: {
-        '/': (context) => const OnboardingPage(),
+        '/onboarding': (context) => const OnboardingPage(),
         '/login': (context) => const LoginPage(),
         '/register': (context) => const RegisterPage(),
-        '/onboarding': (context) => const OnboardingPage(),
+        '/dashboard': (context) => const DashboardPage(), // ✅ FIXED
       },
     );
   }

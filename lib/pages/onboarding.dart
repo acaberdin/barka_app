@@ -15,7 +15,6 @@ class _OnboardingPageState extends State<OnboardingPage>
   late AnimationController riseController;
 
   late Animation<double> waterRise;
-  late Animation<double> logoFade;
 
   int step = 0;
   bool showBrand = true;
@@ -24,13 +23,11 @@ class _OnboardingPageState extends State<OnboardingPage>
   void initState() {
     super.initState();
 
-    /// 🌊 WAVES
     waveController = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 4),
     )..repeat();
 
-    /// ⬆️ WATER RISE
     riseController = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 3),
@@ -41,15 +38,8 @@ class _OnboardingPageState extends State<OnboardingPage>
       end: 1,
     ).animate(CurvedAnimation(parent: riseController, curve: Curves.easeOut));
 
-    logoFade = Tween<double>(
-      begin: 0,
-      end: 1,
-    ).animate(CurvedAnimation(parent: riseController, curve: Curves.easeIn));
-
-    /// ⏱ LONGER BARKA INTRO (4 SECONDS)
     Future.delayed(const Duration(seconds: 4), () {
       if (!mounted) return;
-
       setState(() {
         showBrand = false;
       });
@@ -64,6 +54,8 @@ class _OnboardingPageState extends State<OnboardingPage>
   }
 
   void nextStep() {
+    if (!mounted) return;
+
     if (step < 2) {
       setState(() {
         step++;
@@ -88,12 +80,12 @@ class _OnboardingPageState extends State<OnboardingPage>
 
   @override
   Widget build(BuildContext context) {
-    double height = MediaQuery.of(context).size.height;
+    final height = MediaQuery.of(context).size.height;
 
     return Scaffold(
       backgroundColor: const Color(0xFF98d7f4),
       body: AnimatedBuilder(
-        animation: Listenable.merge([waveController, riseController]),
+        animation: waveController,
         builder: (context, child) {
           return Stack(
             children: [
@@ -174,43 +166,34 @@ class _OnboardingPageState extends State<OnboardingPage>
     );
   }
 
-  /// 🟣 BRAND SCREEN (BARKA)
+  /// 🟣 BRAND SCREEN
   Widget _buildBrand() {
-    return AnimatedOpacity(
-      opacity: showBrand ? 1 : 0,
-      duration: const Duration(milliseconds: 800),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Image.asset('assets/images/logo.png', height: 170, width: 170),
-
-          const SizedBox(height: 10),
-
-          Text(
-            "BARKA",
-            style: GoogleFonts.schoolbell(
-              fontSize: 40,
-              fontWeight: FontWeight.bold,
-              letterSpacing: 3,
-            ),
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Image.asset('assets/images/logo.png', height: 170, width: 170),
+        const SizedBox(height: 10),
+        Text(
+          "BARKA",
+          style: GoogleFonts.schoolbell(
+            fontSize: 40,
+            fontWeight: FontWeight.bold,
+            letterSpacing: 3,
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
-  /// 🔵 ONBOARDING TEXT
+  /// 🔵 ONBOARD TEXT
   Widget _buildText() {
-    return AnimatedSwitcher(
-      duration: const Duration(milliseconds: 500),
-      child: Text(
-        title,
-        key: ValueKey(step),
-        style: GoogleFonts.leagueSpartan(
-          fontSize: 32,
-          fontWeight: FontWeight.bold,
-          letterSpacing: 4,
-        ),
+    return Text(
+      title,
+      key: ValueKey(step),
+      style: GoogleFonts.leagueSpartan(
+        fontSize: 32,
+        fontWeight: FontWeight.bold,
+        letterSpacing: 4,
       ),
     );
   }
