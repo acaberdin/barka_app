@@ -16,79 +16,78 @@ class DashboardPage extends StatelessWidget {
         List.generate(3, (_) => numbers[random.nextInt(10)]).join();
   }
 
-  /// 🔥 GET USERNAME
+  /// 🔥 GET USERNAME (SAFE)
   Future<String> getUsername() async {
-    final user = FirebaseAuth.instance.currentUser!;
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return "User";
+
     final doc = await FirebaseFirestore.instance
         .collection('users')
         .doc(user.uid)
         .get();
 
-    return doc['username'] ?? "User";
+    final data = doc.data();
+    return data?['username'] ?? "User";
   }
 
-  /// 🔥 GET GROUP CODE
-  Future<String?> getGroupCode() async {
-    final user = FirebaseAuth.instance.currentUser!;
-    final userDoc = await FirebaseFirestore.instance
-        .collection('users')
-        .doc(user.uid)
-        .get();
-
-    List groupIds = userDoc['groupIds'] ?? [];
-
-    if (groupIds.isEmpty) return null;
-
-    final groupDoc = await FirebaseFirestore.instance
-        .collection('groups')
-        .doc(groupIds[0])
-        .get();
-
-    return groupDoc['joinCode'];
-  }
-
-  /// 🔥 GET GROUP ID
+  /// 🔥 GET GROUP ID (SAFE)
   Future<String?> getGroupId() async {
-    final user = FirebaseAuth.instance.currentUser!;
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return null;
+
     final userDoc = await FirebaseFirestore.instance
         .collection('users')
         .doc(user.uid)
         .get();
 
-    List groupIds = userDoc['groupIds'] ?? [];
+    final data = userDoc.data();
+    List groupIds = data?['groupIds'] ?? [];
+
     if (groupIds.isEmpty) return null;
 
     return groupIds[0];
   }
 
+  /// 🔥 GET GROUP CODE (SAFE)
+  Future<String?> getGroupCode() async {
+    final groupId = await getGroupId();
+    if (groupId == null) return null;
+
+    final groupDoc = await FirebaseFirestore.instance
+        .collection('groups')
+        .doc(groupId)
+        .get();
+
+    return groupDoc.data()?['joinCode'];
+  }
+
   /// 🔥 CREATE GROUP
   Future<void> createGroup(BuildContext context) async {
-    final user = FirebaseAuth.instance.currentUser!;
-    final userId = user.uid;
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
 
     final code = generateJoinCode();
 
     final doc = await FirebaseFirestore.instance.collection('groups').add({
       'name': 'New Group',
       'joinCode': code,
-      'createdBy': userId,
-      'members': [userId],
+      'createdBy': user.uid,
+      'members': [user.uid],
       'createdAt': Timestamp.now(),
     });
 
-    await FirebaseFirestore.instance.collection('users').doc(userId).update({
-      'groupIds': FieldValue.arrayUnion([doc.id]),
-    });
+    await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
+      'groupIds': [doc.id],
+    }, SetOptions(merge: true));
 
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text("Group created! Code: $code")));
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text("Group created! Code: $code")));
   }
 
   /// 🔥 JOIN GROUP
   Future<void> joinGroup(BuildContext context, String code) async {
-    final user = FirebaseAuth.instance.currentUser!;
-    final userId = user.uid;
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
 
     final result = await FirebaseFirestore.instance
         .collection('groups')
@@ -96,28 +95,26 @@ class DashboardPage extends StatelessWidget {
         .get();
 
     if (result.docs.isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text("Invalid code")));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text("Invalid code")));
       return;
     }
 
     final group = result.docs.first;
 
     await FirebaseFirestore.instance.collection('groups').doc(group.id).update({
-      'members': FieldValue.arrayUnion([userId]),
+      'members': FieldValue.arrayUnion([user.uid]),
     });
 
-    await FirebaseFirestore.instance.collection('users').doc(userId).update({
-      'groupIds': FieldValue.arrayUnion([group.id]),
-    });
+    await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
+      'groupIds': [group.id],
+    }, SetOptions(merge: true));
 
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text("Joined group!")));
+    ScaffoldMessenger.of(context)
+        .showSnackBar(const SnackBar(content: Text("Joined group!")));
   }
 
-  /// 🔥 GROUP POPUP
+  /// 🔥 GROUP DIALOG
   void showGroupDialog(BuildContext context) {
     final controller = TextEditingController();
 
@@ -156,7 +153,7 @@ class DashboardPage extends StatelessWidget {
     );
   }
 
-  /// 🔥 SETTINGS (CHANGE PASSWORD)
+  /// 🔥 SETTINGS
   void showSettingsDialog(BuildContext context) {
     final current = TextEditingController();
     final newPass = TextEditingController();
@@ -187,14 +184,12 @@ class DashboardPage extends StatelessWidget {
               onPressed: () async {
                 try {
                   final user = FirebaseAuth.instance.currentUser!;
-                  final email = user.email!;
-
-                  final credential = EmailAuthProvider.credential(
-                    email: email,
+                  final cred = EmailAuthProvider.credential(
+                    email: user.email!,
                     password: current.text.trim(),
                   );
 
-                  await user.reauthenticateWithCredential(credential);
+                  await user.reauthenticateWithCredential(cred);
                   await user.updatePassword(newPass.text.trim());
 
                   Navigator.pop(context);
@@ -203,9 +198,8 @@ class DashboardPage extends StatelessWidget {
                     const SnackBar(content: Text("Password updated!")),
                   );
                 } catch (e) {
-                  ScaffoldMessenger.of(
-                    context,
-                  ).showSnackBar(SnackBar(content: Text("Error: $e")));
+                  ScaffoldMessenger.of(context)
+                      .showSnackBar(SnackBar(content: Text("$e")));
                 }
               },
               child: const Text("Save"),
@@ -221,7 +215,6 @@ class DashboardPage extends StatelessWidget {
     return InkWell(
       borderRadius: BorderRadius.circular(30),
       onTap: onTap,
-      splashColor: const Color(0xFF98d7f4),
       child: Padding(
         padding: const EdgeInsets.all(8),
         child: Icon(icon, color: const Color(0xFF31436f)),
@@ -229,58 +222,47 @@ class DashboardPage extends StatelessWidget {
     );
   }
 
-  /// 🔥 DASHBOARD CARD (REAL-TIME + GROUP FILTERED)
+  /// 🔥 DASHBOARD CARD (FIXED LOADING)
   Widget dashboardCard() {
-    final user = FirebaseAuth.instance.currentUser!;
+    final user = FirebaseAuth.instance.currentUser;
 
-    return FutureBuilder(
+    return FutureBuilder<String?>(
       future: getGroupId(),
       builder: (context, groupSnap) {
-        if (!groupSnap.hasData) return const SizedBox();
+        if (groupSnap.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
 
         final groupId = groupSnap.data;
 
-        return StreamBuilder(
+        if (groupId == null) {
+          return const Center(child: Text("Join or create a group"));
+        }
+
+        return StreamBuilder<QuerySnapshot>(
           stream: FirebaseFirestore.instance
               .collection('expenses')
               .where('groupId', isEqualTo: groupId)
               .snapshots(),
           builder: (context, snapshot) {
-            if (!snapshot.hasData) {
-              return const CircularProgressIndicator();
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(child: CircularProgressIndicator());
             }
 
-            final expenses = snapshot.data!.docs;
+            final expenses = snapshot.data?.docs ?? [];
 
             double total = 0;
             double myBalance = 0;
 
             for (var e in expenses) {
-              double amount = (e['amount'] ?? 0).toDouble();
-              String payer = e['paidBy'];
+              final data = e.data() as Map<String, dynamic>;
 
-              Map weights = e['weights'] ?? {};
-
-              if (weights.isEmpty) {
-                weights[user.uid] = 1;
-              }
-
-              int totalWeight = weights.values.fold(
-                0,
-                (a, b) => a + (b as int),
-              );
+              double amount = (data['amount'] ?? 0).toDouble();
+              String payer = data['paidBy'] ?? "";
 
               total += amount;
 
-              for (var uid in weights.keys) {
-                double share = amount * (weights[uid] / totalWeight);
-
-                if (uid == user.uid) {
-                  myBalance -= share;
-                }
-              }
-
-              if (payer == user.uid) {
+              if (payer == user?.uid) {
                 myBalance += amount;
               }
             }
@@ -296,46 +278,34 @@ class DashboardPage extends StatelessWidget {
                   ),
                   child: Column(
                     children: [
-                      const Text(
-                        "Total Expenses",
-                        style: TextStyle(color: Colors.grey),
-                      ),
-                      Text(
-                        "₱${total.toStringAsFixed(2)}",
-                        style: const TextStyle(
-                          fontSize: 26,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
+                      const Text("Total Expenses"),
+                      Text("₱${total.toStringAsFixed(2)}"),
                       const SizedBox(height: 10),
                       Text(
                         myBalance >= 0
                             ? "You are owed ₱${myBalance.toStringAsFixed(2)}"
                             : "You owe ₱${myBalance.abs().toStringAsFixed(2)}",
-                        style: TextStyle(
-                          color: myBalance >= 0 ? Colors.green : Colors.red,
-                          fontWeight: FontWeight.bold,
-                        ),
                       ),
                     ],
                   ),
                 ),
-
                 const SizedBox(height: 20),
-
-                /// 🔥 RECENT EXPENSES
                 Expanded(
-                  child: ListView.builder(
-                    itemCount: expenses.length,
-                    itemBuilder: (context, index) {
-                      final e = expenses[index];
+                  child: expenses.isEmpty
+                      ? const Center(child: Text("No expenses yet"))
+                      : ListView.builder(
+                          itemCount: expenses.length,
+                          itemBuilder: (context, index) {
+                            final data =
+                                expenses[index].data() as Map<String, dynamic>;
 
-                      return ListTile(
-                        title: Text(e['description'] ?? ""),
-                        subtitle: Text("₱${e['amount']}"),
-                      );
-                    },
-                  ),
+                            return ListTile(
+                              title:
+                                  Text(data['description'] ?? "No description"),
+                              subtitle: Text("₱${data['amount'] ?? 0}"),
+                            );
+                          },
+                        ),
                 ),
               ],
             );
@@ -349,7 +319,6 @@ class DashboardPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFccefff),
-
       floatingActionButton: FloatingActionButton(
         backgroundColor: const Color(0xFF31436f),
         onPressed: () {
@@ -357,7 +326,6 @@ class DashboardPage extends StatelessWidget {
         },
         child: const Icon(Icons.add),
       ),
-
       body: SafeArea(
         child: Column(
           children: [
@@ -367,16 +335,11 @@ class DashboardPage extends StatelessWidget {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Image.asset("assets/images/logo.png", height: 45),
-
+                  const Text("Dashboard",
+                      style:
+                          TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
                   Row(
                     children: [
-                      iconButton(Icons.receipt_long, () {
-                        Navigator.pushNamed(context, '/split');
-                      }),
-                      iconButton(Icons.photo, () {
-                        Navigator.pushNamed(context, '/photos');
-                      }),
                       iconButton(Icons.group, () {
                         showGroupDialog(context);
                       }),
@@ -395,7 +358,9 @@ class DashboardPage extends StatelessWidget {
             FutureBuilder(
               future: Future.wait([getUsername(), getGroupCode()]),
               builder: (context, snapshot) {
-                if (!snapshot.hasData) return const SizedBox();
+                if (!snapshot.hasData) {
+                  return const SizedBox();
+                }
 
                 final username = snapshot.data![0];
                 final groupCode = snapshot.data![1];
@@ -405,14 +370,8 @@ class DashboardPage extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        "Hello, $username 👋",
-                        style: const TextStyle(
-                          fontSize: 22,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 5),
+                      Text("Hello, $username 👋",
+                          style: const TextStyle(fontSize: 22)),
                       if (groupCode != null) Text("Group Code: $groupCode"),
                     ],
                   ),
@@ -422,7 +381,7 @@ class DashboardPage extends StatelessWidget {
 
             const SizedBox(height: 20),
 
-            /// 🔥 DASHBOARD CONTENT
+            /// 🔥 DASHBOARD
             Expanded(
               child: Padding(
                 padding: const EdgeInsets.all(16),

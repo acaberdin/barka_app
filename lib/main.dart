@@ -4,16 +4,22 @@ import 'package:firebase_core/firebase_core.dart';
 
 import 'firebase_options.dart';
 
+// PAGES
 import 'pages/onboarding.dart';
 import 'pages/login.dart';
 import 'pages/register.dart';
-import 'pages/dashboard.dart';
+import 'pages/main_layout.dart';
+import 'pages/add_expense.dart';
+import 'pages/photos.dart';
 import 'pages/split.dart';
+import 'pages/group.dart'; // ✅ ADD THIS
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
 
   runApp(const BarkaApp());
 }
@@ -37,7 +43,17 @@ class BarkaApp extends StatelessWidget {
         '/onboarding': (context) => const OnboardingPage(),
         '/login': (context) => const LoginPage(),
         '/register': (context) => const RegisterPage(),
-        '/dashboard': (context) => const DashboardPage(), // ✅ FIXED
+
+        // ✅ MAIN APP
+        '/main': (context) => const MainLayout(),
+
+        // ✅ FEATURE PAGES
+        '/add-expense': (context) => const AddExpensePage(),
+        '/photos': (context) => const PhotosPage(),
+        '/split': (context) => const SplitPage(),
+
+        // ✅ FIXED GROUP ROUTE
+        '/group': (context) => const GroupPage(),
       },
     );
   }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'main_layout.dart'; // ✅ IMPORTANT
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -55,15 +56,15 @@ class _LoginPageState extends State<LoginPage>
     Navigator.pushNamed(context, '/register');
   }
 
-  /// 🔐 LOGIN
+  /// 🔐 LOGIN FUNCTION (FINAL)
   Future<void> loginUser() async {
     final email = emailController.text.trim();
     final password = passwordController.text.trim();
 
     if (email.isEmpty || password.isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text("Please fill all fields")));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Please fill all fields")),
+      );
       return;
     }
 
@@ -77,25 +78,47 @@ class _LoginPageState extends State<LoginPage>
 
       if (!mounted) return;
 
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text("Login successful")));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Login successful")),
+      );
 
-      Navigator.pushReplacementNamed(context, '/dashboard');
+      // ✅ GO TO MAIN APP (WITH NAV + DRAWER)
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => MainLayout()),
+      );
+    } on FirebaseAuthException catch (e) {
+      if (!mounted) return;
+
+      String message = "Login failed";
+
+      if (e.code == 'user-not-found') {
+        message = "No user found for this email";
+      } else if (e.code == 'wrong-password') {
+        message = "Incorrect password";
+      } else if (e.code == 'invalid-email') {
+        message = "Invalid email format";
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message)),
+      );
     } catch (e) {
       if (!mounted) return;
 
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text("Error: $e")));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Error: $e")),
+      );
     }
 
-    setState(() => isLoading = false);
+    if (mounted) {
+      setState(() => isLoading = false);
+    }
   }
 
   /// 🔥 FORGOT PASSWORD
   void showForgotPasswordDialog() {
-    final emailController = TextEditingController();
+    final TextEditingController resetEmailController = TextEditingController();
 
     showDialog(
       context: context,
@@ -103,7 +126,7 @@ class _LoginPageState extends State<LoginPage>
         return AlertDialog(
           title: const Text("Reset Password"),
           content: TextField(
-            controller: emailController,
+            controller: resetEmailController,
             decoration: const InputDecoration(hintText: "Enter your email"),
           ),
           actions: [
@@ -111,7 +134,7 @@ class _LoginPageState extends State<LoginPage>
               onPressed: () async {
                 try {
                   await FirebaseAuth.instance.sendPasswordResetEmail(
-                    email: emailController.text.trim(),
+                    email: resetEmailController.text.trim(),
                   );
 
                   Navigator.pop(context);
@@ -120,9 +143,9 @@ class _LoginPageState extends State<LoginPage>
                     const SnackBar(content: Text("Password reset email sent!")),
                   );
                 } catch (e) {
-                  ScaffoldMessenger.of(
-                    context,
-                  ).showSnackBar(SnackBar(content: Text("Error: $e")));
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text("Error: $e")),
+                  );
                 }
               },
               child: const Text("Send"),
@@ -137,10 +160,9 @@ class _LoginPageState extends State<LoginPage>
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFccefff),
-
       body: Stack(
         children: [
-          /// 🌊 WAVE
+          /// 🌊 WAVE ANIMATION
           AnimatedBuilder(
             animation: _breathingWave,
             builder: (context, child) {
@@ -169,7 +191,7 @@ class _LoginPageState extends State<LoginPage>
             },
           ),
 
-          /// BACK BUTTON
+          /// 🔙 BACK BUTTON
           SafeArea(
             child: IconButton(
               icon: const Icon(Icons.arrow_back),
@@ -177,18 +199,18 @@ class _LoginPageState extends State<LoginPage>
             ),
           ),
 
-          /// CONTENT
+          /// 📦 CONTENT
           SingleChildScrollView(
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 25),
               child: Column(
                 children: [
                   const SizedBox(height: 120),
-
-                  Image.asset("assets/images/logo.png", height: 80),
-
+                  Image.asset(
+                    "assets/images/logo.png",
+                    height: 80,
+                  ),
                   const SizedBox(height: 10),
-
                   Text(
                     "LOGIN",
                     style: GoogleFonts.leagueSpartan(
@@ -196,20 +218,12 @@ class _LoginPageState extends State<LoginPage>
                       fontWeight: FontWeight.bold,
                     ),
                   ),
-
                   const SizedBox(height: 40),
-
                   _field(Icons.person, "Email", controller: emailController),
                   const SizedBox(height: 15),
-                  _field(
-                    Icons.lock,
-                    "Password",
-                    obscure: true,
-                    controller: passwordController,
-                  ),
-
+                  _field(Icons.lock, "Password",
+                      obscure: true, controller: passwordController),
                   const SizedBox(height: 20),
-
                   SizedBox(
                     width: double.infinity,
                     height: 55,
@@ -232,10 +246,7 @@ class _LoginPageState extends State<LoginPage>
                             ),
                     ),
                   ),
-
                   const SizedBox(height: 20),
-
-                  /// 🔥 FORGOT PASSWORD
                   TextButton(
                     onPressed: showForgotPasswordDialog,
                     child: const Text(
@@ -243,10 +254,7 @@ class _LoginPageState extends State<LoginPage>
                       style: TextStyle(fontWeight: FontWeight.bold),
                     ),
                   ),
-
                   const SizedBox(height: 10),
-
-                  /// REGISTER
                   TextButton(
                     onPressed: _goRegister,
                     child: const Text(
@@ -254,7 +262,6 @@ class _LoginPageState extends State<LoginPage>
                       style: TextStyle(fontWeight: FontWeight.bold),
                     ),
                   ),
-
                   const SizedBox(height: 30),
                 ],
               ),
